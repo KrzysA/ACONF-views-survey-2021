@@ -1,0 +1,270 @@
+---
+title: "Aberdeen Children of the 1950s - Cohort's Views on Future Research - 2021 Survey"
+author: "Krzysztof Adamczyk"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 5
+    theme: spacelab
+    code_download: yes
+    code_folding: hide
+    always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+library(plyr)
+library(readr)
+library(stringr)
+library(tidytext)
+library(tidyverse)
+library(wesanderson)
+
+ACONF_Views_Survey <- read_csv(here::here("Desktop/ACONF Views Survey.csv"))
+
+names(ACONF_Views_Survey) <- c("Timestamp", "Q1", "Q2", "Q3", "Q4", "FreeText", "Category")
+
+```
+
+### 1. Introduction
+
+Aberdeen Children of the 1950s (ACONF) Cohort's Views on Future Research Survey was created in Google Forms, posted on Aberdeen Birth Cohorts FB page on 30 April 2021, and sent by email the following day to 741 cohort members. It included six questions - four asking the participant to rank priority (these were mandatory), one open question, and one multiple choice asking respondent to identify themselves as ACONF participant, member of the public, and/or researcher or public health professional. The survey was open for a week and received 460 responses. From 460 people, 8 identified as members of the public and not ACONF. Excluding non-ACONF members, and not taking into account the impact of FB page posting (which has a relatively small following), the response rate is 61%.
+
+Out of 452 ACONF respondents, 4 also identified as "Researcher or public health professional". This group provided 214 free text responses to Q5 which was not a mandatory question. The following analysis pertains to 452 self-identified ACONF cohort members only.
+
+The survey opened with the below text.
+
+"We're interested to hear your views on potential new research on COVID-19 and the Aberdeen Children of the 1950s (ACONF) study. The last year has changed our lives dramatically -- how we work, connect with family and friends, look after our health and go about our daily lives. As researchers, we are keen to understand how the changes brought about by the pandemic have affected lives of the study participants. We would value your opinion on how to prioritise these research questions and would also like to hear your thoughts on any topics you feel are important."
+
+### 2. Answers to Questions 1-4 (n = 452)
+
+"We are interested in a number of topics, please tell us whether you think these are of high or low priority to research:"
+
+```{r include=FALSE}
+
+Q1Q4 <- ACONF_Views_Survey %>%
+  filter(Category != "Member of the public")
+
+plotit <- function(x) {
+    ggplot(Q1Q4, aes(x = x)) + 
+    geom_bar(aes(y = ..prop..), stat = "count", fill = wes_palette("Zissou1"))  +
+    geom_text(aes(label = scales::percent(..prop.., accuracy = 0.1), y = ..prop.. ), stat= "count", vjust = -.5) +
+    scale_y_continuous(labels = scales::label_percent(), limits = c(0, 0.7)) + 
+    labs(x = "", y = "") + 
+    theme_minimal() +
+    theme(axis.text = element_text(size = 12))
+    }
+```
+
+**Q1. "Understanding why some people are less likely to take up the COVID-19 vaccine (1 - Low priority, 5 - High priority)"**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, out.width = "600px", fig.align = "center"}
+plotit(Q1Q4$Q1)
+```
+
+**Q2. "Understanding the experience of using the internet for daily activities (e.g. shopping, keeping in contact with friends and family) (1 - Low priority, 5 - High priority)"**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, out.width = "600px", fig.align = "center"}
+plotit(Q1Q4$Q2)
+```
+
+**Q3. "Examining impact of the pandemic on mental health, loneliness and wellbeing (1 - Low priority, 5 - High priority)"**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, out.width = "600px", fig.align = "center"}
+plotit(Q1Q4$Q3)
+```
+
+**Q4. Understanding how experience as a child of the 50s and 60s has helped with coping with the effects of COVID-19 lockdowns, social isolation and mental health issues? (1 - Low priority, 5 - High priority)"**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, out.width = "600px", fig.align = "center"}
+plotit(Q1Q4$Q4)
+```
+
+### 3. Answers to Question 5 (n = 214)
+
+Respondents were asked: **"Are there any other aspects of life during the pandemic that you think should be researched?"**
+
+Here I calculate word frequency in all responses. This reflects the frequency of each word and not instances of responses with each word. Misspelled instances of 'Aberdeen' and non/hyphenated versions of 'wellbeing' are identified and made uniform using regex.
+
+```{r message=FALSE, warning=FALSE}
+
+LongAnswer <- ACONF_Views_Survey %>%
+  filter(Category != "Member of the public") %>%
+  filter(!is.na(FreeText)) %>%
+  select(FreeText)
+
+LongAnswer_clean <- LongAnswer %>%
+  mutate(FreeText = gsub("(?i)well(.|)being", "wellbeing", FreeText)) %>%
+  mutate(FreeText = gsub("(?i)Aberd\\w*", "Aberdeen", FreeText))
+
+wordcounts <- LongAnswer_clean %>%
+  unnest_tokens(word, FreeText) %>%
+  anti_join(stop_words) %>%
+  dplyr::count(word) %>%
+  arrange(desc(n))
+
+Themes <- LongAnswer_clean %>%
+  mutate(typhoid = str_detect(FreeText, "(?i)typhoid")) %>%
+  mutate(finances = str_detect(FreeText, c("(?i)finan\\w*|(?i)\\bearnings"))) %>%
+  mutate(physical = str_detect(FreeText, c("(?i)physical|(?i)fitness|(?i)exercise"))) %>%
+  mutate(access = str_detect(FreeText, "(?i)access|(?i)gp.*|(?i)medical")) %>%
+  mutate(vaccine = str_detect(FreeText, "(?i)vaccin\\w*")) %>%
+  mutate(urbanrural = str_detect(FreeText, "(?i)urban|(?i)rural")) %>%
+  mutate(travel = str_detect(FreeText, "(?i)abroad|(?i)travel\\w*")) %>%
+  mutate(shopping = str_detect(FreeText, "(?i)shopping")) %>%
+  mutate(positives = str_detect(FreeText, "(?i)positive\\w*")) %>%
+  mutate(bereavement = str_detect(FreeText, "(?i)bereavement|loss.of.close|losing.a.family|loss.of.loved.ones")) %>%
+  mutate(isolation = str_detect(FreeText, ("(?i)mental.health|isolation|contact")))
+
+DT::datatable(wordcounts, colnames = c("", "Word", "Frequency"), options = list(autoWidth = TRUE, columnDefs = list(list(width = '50px', targets = 1))))
+
+```
+
+#### 3.1 Free text respones and selected themes {.tabset}
+
+In this section, free text responses can be searched and viewed in the tab 'All responses'. In other tabs, a selection of themes is identified and grouped so relevant responses can be read together. In all theme groupings for word variations and multiple words regex is used.
+
+For example, 'Finances' includes 'financial' (4), 'finances' (1), and 'financially' (1), as well as 'earnings' (3). No instances of 'money' or 'economical' or their variations are found. These are not broken down by number for each grouping at the moment.
+
+Some frequent words such as 'people' (52) are very non-specific, while themes such as access to healthcare need more key words such as 'access', 'GP', 'services', 'medical' and still leave an unrelated cases which is manually excluded.
+
+Code used for rexeg can be viewed by exandind chunk in the previous section.
+
+##### **All responses**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Themes %>%
+  select(FreeText) %>%
+  DT::datatable(colnames = c("All responses"))
+
+```
+
+##### Typhoid
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Themes %>%
+  filter(typhoid == TRUE) %>%
+  select(FreeText) %>%
+  DT::datatable(colnames = c("Typhoid"))
+
+```
+
+##### Finances
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Themes %>%
+  filter(finances == TRUE) %>%
+  select(FreeText) %>%
+  DT::datatable(colnames = c("Finances / Earnings"))
+
+```
+
+##### Healthcare access
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Themes %>%
+  filter(access == TRUE) %>%
+  select(FreeText) %>%
+  slice(-c(6, 10, 12, 19)) %>%
+  DT::datatable(colnames = c("Access / GP / Services / Medical"))
+
+```
+
+##### Physical health
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Themes %>%
+  filter(physical == TRUE) %>%
+  select(FreeText) %>%
+    DT::datatable(colnames = c("Physical / Fitness / Exercise"))
+
+```
+
+##### Vaccine
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Themes %>%
+  filter(vaccine == TRUE) %>%
+  select(FreeText) %>%
+    DT::datatable(colnames = c("Vaccine"))
+
+```
+
+##### Urban/rural
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Themes %>%
+  filter(urbanrural == TRUE) %>%
+  select(FreeText) %>%
+    DT::datatable(colnames = c("Urban / Rural "))
+
+```
+
+##### Travel
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Themes %>%
+  filter(travel == TRUE) %>%
+  select(FreeText) %>%
+    DT::datatable(colnames = c("Travel / Abroad"))
+
+```
+
+##### Shopping
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Themes %>%
+  filter(shopping == TRUE) %>%
+  select(FreeText) %>%
+    DT::datatable(colnames = c("Shopping"))
+
+```
+
+##### Positives
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Themes %>%
+  filter(positives == TRUE) %>%
+  select(FreeText) %>%
+    DT::datatable(colnames = c("Positives"))
+
+```
+
+
+##### Bereavement
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Themes %>%
+  filter(bereavement == TRUE) %>%
+  select(FreeText) %>%
+    DT::datatable(colnames = c("Bereavement / Loss"))
+
+```
+
+##### Mental health
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Themes %>%
+  filter(isolation == TRUE) %>%
+  slice(-c(8, 9)) %>%
+  select(FreeText) %>%
+    DT::datatable(colnames = c("Mental health / Isolation / Contact"))
+
+```
+
